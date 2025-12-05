@@ -1,0 +1,12 @@
+# User inventory data files
+seveso_inventory.json
+*.inventory.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
