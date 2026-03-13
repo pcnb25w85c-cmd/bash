@@ -1,0 +1,15 @@
+{
+  "name": "Action Nieuws",
+  "short_name": "Action",
+  "description": "Wereldwijd nieuws over Action – supply chain, expansie en meer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#e30613",
+  "theme_color": "#e30613",
+  "orientation": "portrait-primary",
+  "lang": "nl",
+  "icons": [
+    { "src": "icon.png",    "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
