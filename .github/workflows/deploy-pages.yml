@@ -18,11 +18,11 @@ jobs:
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
-          # Maak een schone gh-pages branch met alleen de docs inhoud
+          # Sla docs op vóór git rm alles verwijdert
+          cp -r docs /tmp/pages
           git checkout --orphan gh-pages-new
           git rm -rf . --quiet
-          cp -r docs/. .
-          rm -rf docs .github
+          cp -r /tmp/pages/. .
           touch .nojekyll
           git add -A
           git commit -m "Deploy Action Nieuws App"
