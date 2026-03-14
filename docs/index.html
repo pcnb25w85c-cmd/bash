@@ -268,17 +268,19 @@ function dedupe(articles) {
 // ── RSS fetchen via CORS-proxy ────────────────────────────────────
 async function fetchRSS(query, lang, country) {
   const rssUrl  = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${lang}&gl=${country}&ceid=${country}:${lang}`;
+  // Each entry: [url, isJsonWrapper]
   const proxies = [
-    `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrl)}`,
+    [`https://corsproxy.io/?url=${encodeURIComponent(rssUrl)}`, false],
+    [`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`, true],
+    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrl)}`, false],
+    [`https://thingproxy.freeboard.io/fetch/${rssUrl}`, false],
   ];
 
-  for (const proxyUrl of proxies) {
+  for (const [proxyUrl, isJson] of proxies) {
     try {
-      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(9000) });
+      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
       if (!resp.ok) continue;
-      const ct   = resp.headers.get('content-type') || '';
-      const text = ct.includes('json') ? (await resp.json()).contents || '' : await resp.text();
+      const text = isJson ? (await resp.json()).contents || '' : await resp.text();
       const arts = parseRSS(text, lang, country);
       if (arts.length) return arts;
     } catch { /* probeer volgende proxy */ }
