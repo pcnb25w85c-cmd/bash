@@ -456,15 +456,29 @@ async function loadNews(skel = false) {
   $('sub').textContent = 'Ophalen\u2026';
 
   try {
-    // Haal alle queries parallel op
-    const results = await Promise.allSettled(
-      QUERIES.map(([q, lang, country]) => fetchRSS(q, lang, country))
-    );
+    let unique = [];
 
-    const merged  = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-    const relevant = merged.filter(isRelevant);
-    const unique  = dedupe(relevant);
-    unique.forEach(a => { a.category = categorize(a); });
+    // Stap 1: probeer de statisch gegenereerde news.json (GitHub Actions, geen CORS)
+    try {
+      const resp = await fetch('./news.json', { signal: AbortSignal.timeout(6000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.articles && data.articles.length > 0) {
+          unique = data.articles;
+        }
+      }
+    } catch { /* val terug op CORS-proxies */ }
+
+    // Stap 2: fallback – haal live op via CORS-proxies
+    if (unique.length === 0) {
+      const results = await Promise.allSettled(
+        QUERIES.map(([q, lang, country]) => fetchRSS(q, lang, country))
+      );
+      const merged  = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+      const relevant = merged.filter(isRelevant);
+      unique = dedupe(relevant);
+      unique.forEach(a => { a.category = categorize(a); });
+    }
 
     // Sorteer op datum (nieuwste eerst)
     unique.sort((a, b) => {
