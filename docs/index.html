@@ -340,22 +340,47 @@ function dedupe(articles) {
   });
 }
 
-// ── RSS fetchen via CORS-proxy ────────────────────────────────────
+// ── RSS fetchen ───────────────────────────────────────────────────
 async function fetchRSS(query, lang, country) {
-  const rssUrl  = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${lang}&gl=${country}&ceid=${country}:${lang}`;
-  // Each entry: [url, isJsonWrapper]
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${lang}&gl=${country}&ceid=${country}:${lang}`;
+
+  // 1. rss2json.com – purpose-built CORS-enabled RSS→JSON service
+  try {
+    const resp = await fetch(
+      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=20`,
+      { signal: AbortSignal.timeout(12000) }
+    );
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.status === 'ok' && data.items?.length) {
+        return data.items.map(item => ({
+          title:       (item.title || '').trim(),
+          description: (item.description || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 280),
+          url:         item.link || '',
+          publishedAt: item.pubDate,
+          source:      { name: item.author || `Google News (${lang.toUpperCase()})` },
+          lang, country,
+        })).filter(a => a.title.length > 3);
+      }
+    }
+  } catch { /* probeer volgende */ }
+
+  // 2. Raw XML proxies (fallback)
   const proxies = [
-    [`https://corsproxy.io/?url=${encodeURIComponent(rssUrl)}`, false],
-    [`https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`, true],
-    [`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrl)}`, false],
-    [`https://thingproxy.freeboard.io/fetch/${rssUrl}`, false],
+    // corsproxy.io: correct format is ?ENCODED_URL (geen 'url=' prefix)
+    `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrl)}`,
   ];
 
-  for (const [proxyUrl, isJson] of proxies) {
+  for (const proxyUrl of proxies) {
     try {
       const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
       if (!resp.ok) continue;
-      const text = isJson ? (await resp.json()).contents || '' : await resp.text();
+      const ct   = (resp.headers.get('content-type') || '');
+      const text = ct.includes('json') ? (await resp.json()).contents || '' : await resp.text();
+      if (!text.includes('<item>')) continue;
       const arts = parseRSS(text, lang, country);
       if (arts.length) return arts;
     } catch { /* probeer volgende proxy */ }
