@@ -1,0 +1,44 @@
+name: Deploy Action Nieuws App
+
+on:
+  push:
+    branches: ["claude/action-news-aggregator-RqIE5"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push docs naar gh-pages branch
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          # Sla docs op vóór git rm alles verwijdert
+          cp -r docs /tmp/pages
+          git checkout --orphan gh-pages-new
+          git rm -rf . --quiet
+          cp -r /tmp/pages/. .
+          touch .nojekyll
+          git add -A
+          git commit -m "Deploy Action Nieuws App"
+          git push -f origin gh-pages-new:gh-pages
+
+      - name: Zet GitHub Pages aan via API
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" \
+            -d '{"source":{"branch":"gh-pages","path":"/"}}' \
+          || curl -s -X PUT \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/pages" \
+            -d '{"source":{"branch":"gh-pages","path":"/"}}'

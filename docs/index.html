@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Action Nieuws">
+  <meta name="theme-color" content="#e30613">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>Action Nieuws</title>
+  <style>
+    :root {
+      --red:   #e30613;
+      --bg:    #f2f2f7;
+      --card:  #ffffff;
+      --txt:   #000000;
+      --sec:   #636366;
+      --sep:   rgba(60,60,67,.12);
+      --top:   env(safe-area-inset-top,    20px);
+      --bot:   env(safe-area-inset-bottom,  0px);
+      --l:     env(safe-area-inset-left,    0px);
+      --r:     env(safe-area-inset-right,   0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      background: var(--bg); color: var(--txt);
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+    #app { display: flex; flex-direction: column; height: 100%; }
+
+    /* ── Header ── */
+    .hdr {
+      background: var(--red); color: #fff;
+      padding: calc(var(--top) + 10px) calc(16px + var(--r)) 10px calc(16px + var(--l));
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0; box-shadow: 0 1px 0 rgba(0,0,0,.2); z-index: 10;
+    }
+    .logo {
+      width: 38px; height: 38px; background: #fff; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: var(--red); flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    }
+    .hdr-info { flex: 1; min-width: 0; }
+    .hdr-info h1 { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+    #sub {
+      font-size: 11px; opacity: .85; margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rbtn {
+      width: 36px; height: 36px; border: none; cursor: pointer;
+      background: rgba(255,255,255,.18); border-radius: 50%;
+      color: #fff; font-size: 20px; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0; -webkit-appearance: none;
+      transition: background .15s;
+    }
+    .rbtn:active { background: rgba(255,255,255,.35); }
+    .rbtn.spin { animation: spin .9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Tabs ── */
+    .tabs-wrap { background: var(--card); border-bottom: 1px solid var(--sep); flex-shrink: 0; }
+    .tabs {
+      display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding: 0 calc(8px + var(--l)) 0 calc(8px + var(--r));
+    }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab {
+      flex-shrink: 0; border: none; background: none; cursor: pointer;
+      padding: 11px 13px; font-size: 13.5px; font-weight: 500; color: var(--sec);
+      position: relative; white-space: nowrap; -webkit-appearance: none; transition: color .15s;
+    }
+    .tab.on { color: var(--red); font-weight: 600; }
+    .tab.on::after {
+      content: ''; position: absolute; bottom: 0; left: 13px; right: 13px;
+      height: 2.5px; background: var(--red); border-radius: 2px 2px 0 0;
+    }
+
+    /* ── Feed ── */
+    .feed {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 10px calc(14px + var(--r)) calc(var(--bot) + 20px) calc(14px + var(--l));
+    }
+
+    /* ── PTR ── */
+    .ptr {
+      text-align: center; font-size: 12px; color: var(--sec);
+      height: 0; overflow: hidden; transition: height .2s ease;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .ptr.show { height: 44px; }
+
+    /* ── Count ── */
+    .count { text-align: center; font-size: 12px; color: var(--sec); padding: 4px 0 10px; }
+
+    /* ── Card ── */
+    .card {
+      display: block; text-decoration: none; color: inherit;
+      background: var(--card); border-radius: 13px; padding: 13px 15px; margin-bottom: 9px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 0 0 .5px rgba(0,0,0,.04);
+      animation: up .28s ease both; transition: opacity .12s;
+    }
+    .card:active { opacity: .55; }
+    @keyframes up {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-meta {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 4px; font-size: 11.5px; color: var(--sec); margin-bottom: 5px;
+    }
+    .c-src  { font-weight: 700; color: var(--red); }
+    .c-dot  { opacity: .35; font-size: 10px; }
+    .c-cat  {
+      background: #f0f0f5; border-radius: 5px;
+      padding: 1px 6px; font-size: 10.5px; font-weight: 500; color: #3c3c43;
+    }
+    .c-ttl  {
+      font-size: 15.5px; font-weight: 600; line-height: 1.35;
+      margin-bottom: 5px; color: #000; letter-spacing: -.15px;
+    }
+    .c-desc {
+      font-size: 13px; line-height: 1.45; color: var(--sec);
+      display: -webkit-box; -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    /* ── Skeleton ── */
+    .sk-card { background: var(--card); border-radius: 13px; padding: 13px 15px; margin-bottom: 9px; }
+    .sk {
+      background: linear-gradient(90deg,#e5e5ea 25%,#ebebf0 50%,#e5e5ea 75%);
+      background-size: 300% 100%; border-radius: 5px; animation: shim 1.4s infinite;
+    }
+    @keyframes shim { from { background-position: 300% 0; } to { background-position: -300% 0; } }
+    .sk-a { height: 11px; width: 55%; margin-bottom: 9px; }
+    .sk-b { height: 16px; width: 92%; margin-bottom: 5px; }
+    .sk-c { height: 16px; width: 70%; margin-bottom: 9px; }
+    .sk-d { height: 11px; width: 100%; margin-bottom: 4px; }
+    .sk-e { height: 11px; width: 78%; }
+
+    /* ── Empty ── */
+    .empty {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 60px 32px; text-align: center;
+    }
+    .empty-ico { font-size: 52px; margin-bottom: 18px; }
+    .empty h3  { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .empty p   { font-size: 14px; color: var(--sec); line-height: 1.55; }
+
+    /* ── Error banner ── */
+    .err-banner {
+      background: #fff3cd; border: 1px solid #ffc107; border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.5;
+    }
+    .err-banner strong { display: block; margin-bottom: 3px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header class="hdr">
+    <div class="logo">A</div>
+    <div class="hdr-info">
+      <h1>Action Nieuws</h1>
+      <div id="sub">Opstarten&hellip;</div>
+    </div>
+    <button class="rbtn" id="rbtn" onclick="doRefresh()" aria-label="Vernieuwen">&#8635;</button>
+  </header>
+
+  <div class="tabs-wrap">
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-cat="">Alles</button>
+      <button class="tab" data-cat="Supply Chain & Distributie">🏭 Supply Chain</button>
+      <button class="tab" data-cat="Expansie & Openingen">🏪 Expansie</button>
+      <button class="tab" data-cat="Financieel">💰 Financieel</button>
+      <button class="tab" data-cat="Technologie & Innovatie">💻 Technologie</button>
+      <button class="tab" data-cat="Duurzaamheid">🌱 Duurzaamheid</button>
+      <button class="tab" data-cat="Personeel & Arbeid">👷 Personeel</button>
+      <button class="tab" data-cat="Algemeen Nieuws">📰 Overig</button>
+    </div>
+  </div>
+
+  <div class="feed" id="feed">
+    <div class="ptr" id="ptr">&#8595; Loslaten om te vernieuwen</div>
+  </div>
+
+</div>
+<script>
+// ── Configuratie ────────────────────────────────────────────────
+const QUERIES = [
+  // Nederland
+  ['Action winkelketen Nederland',               'nl', 'NL'],
+  ['Action distributiecentrum logistiek',        'nl', 'NL'],
+  ['Action winkel opening Nederland',            'nl', 'NL'],
+  ['Action omzet resultaten financieel',         'nl', 'NL'],
+  ['Action medewerkers staking cao personeel',   'nl', 'NL'],
+  // België
+  ['Action winkel opening België',               'nl', 'BE'],
+  ['Action magasin ouverture Belgique',          'fr', 'BE'],
+  // Frankrijk
+  ['Action magasin ouverture France',            'fr', 'FR'],
+  ['Action entrepôt distribution grève France',  'fr', 'FR'],
+  ['Action chiffre affaires résultats France',   'fr', 'FR'],
+  // Duitsland
+  ['Action Filiale Eröffnung Deutschland',       'de', 'DE'],
+  ['Action Mitarbeiter Logistik Deutschland',    'de', 'DE'],
+  // Zwitserland
+  ['Action Filiale Schweiz Eröffnung',           'de', 'CH'],
+  // Oostenrijk
+  ['Action Filiale Österreich Eröffnung',        'de', 'AT'],
+  // Spanje
+  ['Action tienda apertura España',              'es', 'ES'],
+  // Portugal
+  ['Action loja abertura Portugal',              'pt', 'PT'],
+  // Italië
+  ['Action negozio apertura Italia',             'it', 'IT'],
+  // Roemenië
+  ['Action magazin deschidere Romania',          'ro', 'RO'],
+  // Polen
+  ['Action sklep otwarcie Polska',               'pl', 'PL'],
+  // Tsjechië
+  ['Action obchod otevření Česko',               'cs', 'CZ'],
+  // Slowakije
+  ['Action obchod otvorenie Slovensko',          'sk', 'SK'],
+  // Slovenië
+  ['Action trgovina odprtje Slovenija',          'sl', 'SI'],
+  // Engels (internationaal)
+  ['Action retailer Europe expansion revenue',   'en', 'GB'],
+];
+
+// Relevantiefilter – artikel moet over Action de retailer gaan
+const RETAIL_TERMS = [
+  'winkel','filiaal','winkels','filialen','winkelketen',
+  'store','stores','shop','retailer','discounter','non-food',
+  'magasin','enseigne','boutique',
+  'filiale','filialen','laden','geschäft',
+  'tienda','tiendas','comercio',
+  'loja','lojas',
+  'magazin','magazine',
+  'sklep','sklepy',
+  'negozio','negozi',
+  'obchod','obchody',
+  'trgovina',
+  'distributiecentrum','entrepôt','warehouse','magazijn','lager','depozit','magazyn','sklad',
+  'medewerker','personeel','staking','grève','streik','huelga','grevă','strajk','sciopero',
+  'omzet','revenue','fatturato','chiffre','umsatz','cifra de negocio',
+  'opening','ouverture','eröffnung','apertura','abertura','deschidere','otwarcie','odprtje',
+  'logistiek','logistique','logistik','logística','logistica',
+  'supply chain','cao','fnv',
+];
+
+function isRelevant(article) {
+  const text = article.title + ' ' + article.description;
+  // Moet "Action" als zelfstandig woord bevatten (hoofdletter A)
+  if (!/\bAction\b/.test(text)) return false;
+  // Moet ook minstens één retail-indicator bevatten
+  const lc = text.toLowerCase();
+  return RETAIL_TERMS.some(t => lc.includes(t));
+}
+
+const CATS = {
+  'Supply Chain & Distributie':  [
+    'supply chain','distributie','warehouse','logistiek','fulfillment','leverancier',' dc ',
+    'transport','magazijn','inkoop','entrepôt','almacén','armazém','lager','depozit',
+    'magazyn','sklad','logistique','logistik','logística',
+  ],
+  'Expansie & Openingen':        [
+    'opening','filiaal','winkel',' store','expansie','expansion','ouverture','eröffnung',
+    'tienda','loja','magasin','negozio','obchod','sklep','otwarcie','deschidere',
+    'apertura','abertura','odprtje','otevření','otvorenie',
+  ],
+  'Financieel':                  [
+    'omzet','groei','resultaat','winst','financieel','revenue','profit','kwartaal',
+    'overname','jaarverslag','fatturato','chiffre','umsatz','cifra','resultados',
+  ],
+  'Technologie & Innovatie':     [
+    'technologie','digitaal','robot','automation','innovatie','software','rfid','scan',' ai ',
+  ],
+  'Duurzaamheid':                [
+    'duurzaam','co2','milieu','sustainability','esg','klimaat','recycl','groen','emissie',
+    'durabilité','nachhaltigkeit','sostenibili',
+  ],
+  'Personeel & Arbeid':          [
+    'personeel','medewerker','cao','fnv','arbeids','vacature','staking','loon',
+    'grève','syndicat','salariés','streik','gewerkschaft','huelga','sindicato',
+    'grevă','sindical','strajk','związek','sciopero','sindacato','štrajk',
+  ],
+};
+
+// ── State ────────────────────────────────────────────────────────
+let all = [], activeCat = '', busy = false;
+
+// ── Helpers ──────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+
+function ago(raw) {
+  if (!raw) return '';
+  let d = new Date(raw);
+  if (isNaN(d)) d = new Date(raw.replace(/(\d{2}) (\w{3}) (\d{4})/, '$2 $1 $3'));
+  if (isNaN(d)) return raw.slice(0, 10);
+  const s = (Date.now() - d) / 1000;
+  if (s <    60) return 'zojuist';
+  if (s <  3600) return Math.floor(s / 60) + ' min geleden';
+  if (s < 86400) return Math.floor(s / 3600) + ' uur geleden';
+  if (s < 86400 * 7) return Math.floor(s / 86400) + ' dagen geleden';
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+}
+
+const CAT_SHORT = {
+  'Supply Chain & Distributie': 'Supply Chain',
+  'Expansie & Openingen':       'Expansie',
+  'Financieel':                 'Financieel',
+  'Technologie & Innovatie':    'Technologie',
+  'Duurzaamheid':               'Duurzaamheid',
+  'Personeel & Arbeid':         'Personeel',
+  'Algemeen Nieuws':            'Overig',
+};
+
+function categorize(article) {
+  const text = (article.title + ' ' + article.description).toLowerCase();
+  for (const [cat, kws] of Object.entries(CATS)) {
+    if (kws.some(kw => text.includes(kw))) return cat;
+  }
+  return 'Algemeen Nieuws';
+}
+
+function dedupe(articles) {
+  const seen = new Set();
+  return articles.filter(a => {
+    const k = a.title.toLowerCase().slice(0, 65);
+    if (!k || seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+// ── RSS fetchen ───────────────────────────────────────────────────
+async function fetchRSS(query, lang, country) {
+  const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${lang}&gl=${country}&ceid=${country}:${lang}`;
+
+  // 1. rss2json.com – purpose-built CORS-enabled RSS→JSON service
+  try {
+    const resp = await fetch(
+      `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}&count=20`,
+      { signal: AbortSignal.timeout(12000) }
+    );
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.status === 'ok' && data.items?.length) {
+        return data.items.map(item => ({
+          title:       (item.title || '').trim(),
+          description: (item.description || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 280),
+          url:         item.link || '',
+          publishedAt: item.pubDate,
+          source:      { name: item.author || `Google News (${lang.toUpperCase()})` },
+          lang, country,
+        })).filter(a => a.title.length > 3);
+      }
+    }
+  } catch { /* probeer volgende */ }
+
+  // 2. Raw XML proxies (fallback)
+  const proxies = [
+    // corsproxy.io: correct format is ?ENCODED_URL (geen 'url=' prefix)
+    `https://corsproxy.io/?${encodeURIComponent(rssUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(rssUrl)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(rssUrl)}`,
+  ];
+
+  for (const proxyUrl of proxies) {
+    try {
+      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+      if (!resp.ok) continue;
+      const ct   = (resp.headers.get('content-type') || '');
+      const text = ct.includes('json') ? (await resp.json()).contents || '' : await resp.text();
+      if (!text.includes('<item>')) continue;
+      const arts = parseRSS(text, lang, country);
+      if (arts.length) return arts;
+    } catch { /* probeer volgende proxy */ }
+  }
+  return [];
+}
+
+function parseRSS(xml, lang, country) {
+  try {
+    const doc   = new DOMParser().parseFromString(xml, 'text/xml');
+    const items = [...doc.querySelectorAll('item')];
+    return items.map(item => {
+      const get = tag => item.querySelector(tag)?.textContent?.trim() || '';
+      // Google News stopt soms echte link in <source url="...">
+      const srcEl  = item.querySelector('source');
+      const srcUrl = srcEl?.getAttribute('url') || '';
+      // De <link> in Google News RSS is de Google redirect – we gebruiken hem toch
+      const rawDesc = get('description');
+      const cleanDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim().slice(0, 280);
+      return {
+        title:       get('title'),
+        description: cleanDesc,
+        url:         get('link') || srcUrl,
+        publishedAt: get('pubDate'),
+        source:      { name: srcEl?.textContent?.trim() || `Google News (${lang.toUpperCase()})` },
+        lang, country,
+      };
+    }).filter(a => a.title.length > 3);
+  } catch { return []; }
+}
+
+// ── Render ───────────────────────────────────────────────────────
+function skeletons() {
+  const f = $('feed'), ptr = $('ptr');
+  f.innerHTML = '';
+  f.appendChild(ptr);
+  for (let i = 0; i < 7; i++) f.insertAdjacentHTML('beforeend', `
+    <div class="sk-card">
+      <div class="sk sk-a"></div>
+      <div class="sk sk-b"></div>
+      <div class="sk sk-c"></div>
+      <div class="sk sk-d"></div>
+      <div class="sk sk-e"></div>
+    </div>`);
+}
+
+function render(articles) {
+  const f = $('feed'), ptr = $('ptr');
+  f.innerHTML = '';
+  f.appendChild(ptr);
+
+  if (!articles.length) {
+    f.insertAdjacentHTML('beforeend', `
+      <div class="empty">
+        <div class="empty-ico">🔍</div>
+        <h3>Geen artikelen</h3>
+        <p>Geen nieuws gevonden.<br>Tik ↻ om opnieuw te zoeken.</p>
+      </div>`);
+    return;
+  }
+
+  f.insertAdjacentHTML('beforeend',
+    `<div class="count">${articles.length} artikel${articles.length !== 1 ? 'en' : ''}</div>`);
+
+  f.insertAdjacentHTML('beforeend', articles.map((a, i) => {
+    const src   = esc(a.source?.name || 'Onbekend');
+    const cat   = esc(CAT_SHORT[a.category] || '');
+    const t     = ago(a.publishedAt);
+    const url   = a.url || '#';
+    const title = esc(a.title || 'Geen titel');
+    const desc  = esc(a.description || '');
+    const delay = Math.min(i * 0.03, 0.45).toFixed(2);
+    return `<a class="card" href="${url}" target="_blank" rel="noopener noreferrer"
+               style="animation-delay:${delay}s">
+      <div class="card-meta">
+        <span class="c-src">${src}</span>
+        ${t   ? `<span class="c-dot">·</span><span>${t}</span>` : ''}
+        ${cat ? `<span class="c-dot">·</span><span class="c-cat">${cat}</span>` : ''}
+      </div>
+      <div class="c-ttl">${title}</div>
+      ${desc ? `<div class="c-desc">${desc}</div>` : ''}
+    </a>`;
+  }).join(''));
+}
+
+function show() {
+  render(activeCat ? all.filter(a => a.category === activeCat) : all);
+}
+
+// ── Nieuws laden ─────────────────────────────────────────────────
+async function loadNews(skel = false) {
+  if (busy) return;
+  busy = true;
+  if (skel) skeletons();
+
+  const rbtn = $('rbtn');
+  rbtn.classList.add('spin');
+  $('sub').textContent = 'Ophalen\u2026';
+
+  try {
+    let unique = [];
+
+    // Stap 1: probeer de statisch gegenereerde news.json (GitHub Actions, geen CORS)
+    try {
+      const resp = await fetch('./news.json', { signal: AbortSignal.timeout(6000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.articles && data.articles.length > 0) {
+          unique = data.articles;
+        }
+      }
+    } catch { /* val terug op CORS-proxies */ }
+
+    // Stap 2: fallback – haal live op via CORS-proxies
+    if (unique.length === 0) {
+      const results = await Promise.allSettled(
+        QUERIES.map(([q, lang, country]) => fetchRSS(q, lang, country))
+      );
+      const merged  = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+      const relevant = merged.filter(isRelevant);
+      unique = dedupe(relevant);
+      unique.forEach(a => { a.category = categorize(a); });
+    }
+
+    // Sorteer op datum (nieuwste eerst)
+    unique.sort((a, b) => {
+      const da = new Date(a.publishedAt), db = new Date(b.publishedAt);
+      if (isNaN(da) && isNaN(db)) return 0;
+      if (isNaN(da)) return 1;
+      if (isNaN(db)) return -1;
+      return db - da;
+    });
+
+    all = unique;
+
+    if (all.length === 0) {
+      $('sub').textContent = '⚠ Geen resultaten';
+      const f = $('feed'), ptr = $('ptr');
+      f.innerHTML = '';
+      f.appendChild(ptr);
+      f.insertAdjacentHTML('beforeend', `
+        <div class="err-banner">
+          <strong>⚠ Verbinding mislukt</strong>
+          Controleer je internetverbinding en tik ↻ om het opnieuw te proberen.
+        </div>`);
+    } else {
+      const now = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+      $('sub').textContent = `${all.length} artikelen · ${now}`;
+      show();
+    }
+  } catch (err) {
+    $('sub').textContent = '⚠ Fout bij laden';
+    console.error(err);
+  } finally {
+    busy = false;
+    rbtn.classList.remove('spin');
+  }
+}
+
+async function doRefresh() { await loadNews(true); }
+
+// ── Tabs ─────────────────────────────────────────────────────────
+$('tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  tab.classList.add('on');
+  activeCat = tab.dataset.cat;
+  show();
+  tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+});
+
+// ── Pull-to-refresh ───────────────────────────────────────────────
+let _y0 = 0;
+const feed = $('feed'), ptr = $('ptr');
+feed.addEventListener('touchstart', e => { _y0 = e.touches[0].clientY; }, { passive: true });
+feed.addEventListener('touchmove', e => {
+  if (feed.scrollTop === 0 && e.touches[0].clientY - _y0 > 70) ptr.classList.add('show');
+}, { passive: true });
+feed.addEventListener('touchend', () => {
+  if (ptr.classList.contains('show')) { ptr.classList.remove('show'); doRefresh(); }
+});
+
+// ── Auto-refresh elke 5 min ───────────────────────────────────────
+setInterval(() => loadNews(), 5 * 60 * 1000);
+
+// ── Service Worker ────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+}
+
+// ── Start ─────────────────────────────────────────────────────────
+loadNews(true);
+</script>
+</body>
+</html>
