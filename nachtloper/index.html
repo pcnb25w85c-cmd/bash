@@ -34,7 +34,10 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:h
 .pass{width:14px;height:10px;border-radius:2px;opacity:.2}
 .pass.a{background:var(--pass-a)} .pass.b{background:var(--pass-b)} .pass.on{opacity:1}
 #doc{color:var(--dim)} #doc.on{color:var(--ice)}
-#menu{pointer-events:auto;background:none;border:1px solid var(--line);color:var(--dim);font:inherit;padding:2px 8px}
+#menu,#snd{pointer-events:auto;background:none;border:1px solid var(--line);color:var(--dim);font:inherit;padding:2px 8px}
+#snd.off{text-decoration:line-through;opacity:.5}
+#light{flex:none;letter-spacing:.1em} #light.on{color:var(--sodium)}
+#vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 42%,rgba(3,5,8,.78) 100%)}
 #vital{flex-basis:100%;display:flex;align-items:center;gap:10px;color:var(--dim);min-width:0}
 #hp{width:120px;height:8px;border:1px solid var(--line);background:var(--panel);flex:none}
 #hp i{display:block;height:100%;width:100%;background:var(--pass-b)}
@@ -57,7 +60,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:h
 #bCoin{grid-area:c} #bDart{grid-area:d;border-color:var(--ice)}
 #bGrab{grid-area:g;border-color:var(--sodium);background:var(--sodium);color:var(--night)}
 #bGrab small{color:var(--night)}
-.act:focus-visible,.go:focus-visible,#menu:focus-visible{outline:2px solid var(--ice);outline-offset:3px}
+.act:focus-visible,.go:focus-visible,#menu:focus-visible,#snd:focus-visible{outline:2px solid var(--ice);outline-offset:3px}
 #tip{position:absolute;left:var(--gut-l);bottom:calc(26px + env(safe-area-inset-bottom, 0px));color:var(--dim);font-size:11px;max-width:40%;pointer-events:none}
 
 #toast{position:absolute;left:var(--gut-l);top:74px;max-width:52%;
@@ -87,6 +90,7 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:h
 
 <div id="game">
   <canvas id="cv"></canvas>
+  <div id="vig"></div>
   <canvas id="ov"></canvas>
 
   <div id="hud">
@@ -96,9 +100,10 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:h
       <span id="doc">logboek</span>
       <span class="pass a" id="pa" title="Roze pas"></span>
       <span class="pass b" id="pb" title="Groene pas"></span>
+      <button id="snd" type="button" aria-label="Geluid aan of uit">&#9834;</button>
       <button id="menu" type="button">II</button>
     </span>
-    <span id="vital"><span id="hp"><i id="hpFill"></i></span><span id="goal"></span></span>
+    <span id="vital"><span id="hp"><i id="hpFill"></i></span><span id="light">DONKER</span><span id="goal"></span></span>
   </div>
 
   <div id="tip">Sleep om te lopen</div>
@@ -125,7 +130,8 @@ body{background:var(--night);color:var(--ink);font-family:var(--mono);overflow:h
       <p id="ovText">Drie verdiepingen, drie logboeken. Haal ze op en neem de lift voordat de nachtploeg je vindt.</p>
       <dl id="how">
         <dt>Slepen</dt><dd>Lopen. Kort slepen is sluipen, ver slepen is rennen. Rennen hoor je.</dd>
-        <dt>Licht</dt><dd>Je lamp verlicht alleen je directe omgeving. De radar rechtsboven toont de rest.</dd>
+        <dt>Licht</dt><dd>In het donker zien bewakers je veel minder snel. Een pijl schiet een lamp uit.</dd>
+        <dt>Lasers</dt><dd>Rode stralen gaan aan en uit. Loop erdoor als ze uit zijn.</dd>
         <dt>Schuilen</dt><dd>Kruip een kast of ventilatieschacht in. Daar zien ze je niet, tenzij ze je erin zagen gaan.</dd>
         <dt>Greep</dt><dd>Sluip achter een bewaker en schakel hem uit. De knop verschijnt vanzelf.</dd>
         <dt>Munt</dt><dd>Gooit een munt in je kijkrichting. Bewakers gaan op het geluid af.</dd>
@@ -166,7 +172,7 @@ const LEVELS = [
   '#.......#...........#',
   '############L########'],
   guards:[[[2,7],[18,7],[18,9],[2,9]], [[10,11],[18,11],[18,14],[10,14]]],
-  cams:[],
+  cams:[], lamps:[[3,5],[9,8],[16,12],[17,6]], lasers:[],
   radio:[['Toren','Wezel, je staat op het laadperron van loods 9. De nachtploeg loopt vaste rondes.'],
          ['Toren','Het eerste logboek ligt rechtsonder. Blijf uit hun lichtbundel en ren niet. Rennen hoor je.'],
          ['Wezel','En als het misgaat?'],
@@ -192,6 +198,7 @@ const LEVELS = [
   '##########L##########'],
   guards:[[[2,14],[14,14]], [[14,5],[18,5],[18,9],[14,9]], [[2,5],[10,5],[10,2],[6,2]]],
   cams:[{x:19,y:1,base:2.6,sweep:.55,period:6}, {x:1,y:9,base:.8,sweep:.6,period:7}],
+  lamps:[[10,14],[16,6],[6,5],[14,2],[4,12]], lasers:[{x0:15,x1:15,y:4,period:4}, {x0:10,x1:10,y:13,period:3.5,phase:1}],
   radio:[['Toren','Het archief. Hier hangen camera’s. Die slapen niet en een pijl doet ze niets.'],
          ['Toren','Achter een bewaker langs sluipen en hem vastgrijpen werkt wel. Dat scheelt je pijlen.'],
          ['Wezel','Er loopt een schacht door de muur links. Waar komt die uit?'],
@@ -217,9 +224,10 @@ const LEVELS = [
   '#####L###############'],
   guards:[[[5,4],[19,4],[19,6],[10,6]], [[1,7],[5,7],[5,11],[1,11]], [[1,16],[19,16]], [[7,13],[11,13],[11,11],[7,11]]],
   cams:[{x:19,y:8,base:2.9,sweep:.5,period:6}, {x:19,y:12,base:2.5,sweep:.5,period:5}],
+  lamps:[[8,4],[3,8],[14,5],[11,15],[14,9],[16,14]], lasers:[{x0:2,x1:2,y:6,period:4}, {x0:3,x1:3,y:12,period:3.2,phase:1.5}, {x0:13,x1:19,y:8,period:5,phase:.5}],
   radio:[['Toren','Laatste verdieping. Het logboek ligt in de kluis, achter de roze deur.'],
          ['Wezel','Vier man. Druk voor een dinsdagnacht.'],
-         ['Toren','Ze weten dat er iets ontbreekt. Pak het en neem de lift. Ik wacht beneden met de bus.']]}
+         ['Toren','Ze weten dat er iets ontbreekt. Zodra je het logboek pakt gaat het kluisalarm af, dus zorg dat je de groene pas al hebt.']]}
 ];
 
 const $ = id => document.getElementById(id);
@@ -233,12 +241,13 @@ let alarm = {phase:'calm', t:0, x:0, y:0};
 let stats = {time:0, alarms:0}, total = {time:0, alarms:0};
 let mode = 'title', clock = 0, coinCd = 0, dartCd = 0, moved = false, flash = 0, grabT = null;
 let radioQ = [], radioSeen = {};
+let lamps = [], lasers = [], lockdown = false, lockT = 0, shake = 0, muzzleT = 0, muted = false, susNow = false;
 const input = {x:0, y:0};
 
 /* ---------- sound ---------- */
 let ac = null;
 function beep(f, d, type, vol, slide){
-  if(!ac) return;
+  if(!ac || muted) return;
   try{
     const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
     o.type = type || 'square'; o.frequency.setValueAtTime(f, t);
@@ -246,6 +255,68 @@ function beep(f, d, type, vol, slide){
     g.gain.setValueAtTime(vol || .05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
     o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + d);
   }catch(e){}
+}
+
+/* ---------- music: generated live, follows the alarm phase ---------- */
+const mus = {n:null, step:0, bar:0, next:0};
+function initMusic(){
+  if(!ac || mus.n) return;
+  try{
+    const out = ac.createGain(), comp = ac.createDynamicsCompressor(); out.gain.value = .6; out.connect(comp); comp.connect(ac.destination);
+    const dly = ac.createDelay(1), fb = ac.createGain(), wet = ac.createGain(); dly.delayTime.value = .34; fb.gain.value = .42; wet.gain.value = .5;
+    dly.connect(fb); fb.connect(dly); dly.connect(wet); wet.connect(out);
+    const nb = ac.createBuffer(1, ac.sampleRate, ac.sampleRate), d = nb.getChannelData(0); for(let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const padF = ac.createBiquadFilter(), padG = ac.createGain(); padF.type = 'lowpass'; padF.frequency.value = 380; padF.Q.value = 3; padG.gain.value = 0; padF.connect(padG); padG.connect(out);
+    const pad = [0, 1, 2].map(i => { const o = ac.createOscillator(); o.type = 'sawtooth'; o.detune.value = (i - 1) * 7; o.connect(padF); o.start(); return o; });
+    const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = .13; lg.gain.value = 140; lfo.connect(lg); lg.connect(padF.frequency); lfo.start();
+    mus.n = {out, dly, nb, pad, padG}; mus.next = ac.currentTime + .1;
+    setInterval(musicTick, 30);
+  }catch(e){}
+}
+function env(g, t, a, peak, dur){ g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(.0001, t + dur); }
+function tone(t, f, dur, type, vol, cut, echo){
+  const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); env(g, t, .008, vol, dur);
+  if(cut){ const fl = ac.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.setValueAtTime(cut, t); fl.frequency.exponentialRampToValueAtTime(Math.max(80, cut * .3), t + dur); o.connect(fl); fl.connect(g); } else o.connect(g);
+  g.connect(mus.n.out); if(echo) g.connect(mus.n.dly); o.start(t); o.stop(t + dur + .02);
+}
+function hit(t, dur, vol, hp){
+  const s = ac.createBufferSource(), g = ac.createGain(), f = ac.createBiquadFilter(); s.buffer = mus.n.nb; f.type = 'highpass'; f.frequency.value = hp;
+  env(g, t, .002, vol, dur); s.connect(f); f.connect(g); g.connect(mus.n.out); s.start(t); s.stop(t + dur + .02);
+}
+function kick(t, vol){ const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .13); env(g, t, .004, vol, .2); o.connect(g); g.connect(mus.n.out); o.start(t); o.stop(t + .25); }
+const semi = n => 73.42 * Math.pow(2, n / 12);
+const ROOTS = [0, 0, -4, -2], BASS_A = [0,0,12,0,0,10,0,12,0,0,3,0,5,0,7,10], BASS_S = [0,null,0,null,3,null,0,null,5,null,0,null,3,null,7,null];
+function schedule(st, bar, I, t){
+  const r = ROOTS[bar % 4], n = mus.n;
+  if(st === 0){ const f = semi(r); n.pad[0].frequency.setTargetAtTime(f * 2, t, .3); n.pad[1].frequency.setTargetAtTime(f * 3, t, .3); n.pad[2].frequency.setTargetAtTime(f * 4 * 1.1892, t, .3); n.padG.gain.setTargetAtTime([.09, .1, .07, .06][I], t, .5); }
+  if(I === 0){
+    if(st === 0 || st === 3) kick(t, st ? .2 : .32);
+    if(st === 0 || st === 10) tone(t, semi(r), .5, 'sine', .3);
+    if(st === 4 || st === 12) hit(t, .04, .05, 7000);
+    const m = bar % 2 ? {4:41, 10:39} : {0:36, 6:31, 12:34};
+    if(m[st] !== undefined) tone(t, semi(m[st]), .5, 'triangle', .09, 0, true);
+  } else if(I === 1){
+    if(st === 0 || st === 8) kick(t, .35); if(st % 4 === 2) hit(t, .04, .06, 7000);
+    if(st % 2 === 0) tone(t, semi(r + (st % 4 ? 27 : 24)), .11, 'triangle', .07, 0, true);
+    if(st === 0) tone(t, semi(r), .9, 'sawtooth', .16, 300);
+  } else if(I === 2){
+    if(st === 0 || st === 8 || st === 11) kick(t, .45); if(st === 4 || st === 12) hit(t, .1, .1, 1800); if(st % 2 === 0) hit(t, .03, .06, 7000);
+    if(BASS_S[st] !== null) tone(t, semi(r + BASS_S[st]), .2, 'sawtooth', .2, 500);
+    if(st % 4 === 2) tone(t, semi(r + 24 + (bar % 2 ? 3 : 7)), .1, 'triangle', .06, 0, true);
+  } else {
+    if(st % 4 === 0 || st === 14) kick(t, .6); if(st === 4 || st === 12) hit(t, .13, .2, 1500); hit(t, .025, st % 2 ? .04 : .08, 7000);
+    tone(t, semi(r + BASS_A[st]), .11, 'sawtooth', .22, 700);
+    if(st === 3 || st === 6 || st === 11) for(const k of [24, 27, 31]) tone(t, semi(r + k), .16, 'sawtooth', .05, 2200);
+    if(st === 0 && bar % 2 === 0) tone(t, semi(r + 36), .9, 'square', .04, 1500, true);
+  }
+}
+function musicTick(){
+  if(!mus.n || !ac || ac.state !== 'running') return;
+  const live = mode === 'play' || mode === 'radio';
+  mus.n.out.gain.setTargetAtTime(muted ? 0 : live ? .6 : .3, ac.currentTime, .1);
+  const I = !live ? 0 : alarm.phase === 'alarm' ? 3 : alarm.phase === 'search' ? 2 : susNow ? 1 : 0, spb = 60 / [92, 104, 120, 140][I] / 4;
+  if(mus.next < ac.currentTime - .25) mus.next = ac.currentTime + .05;
+  while(mus.next < ac.currentTime + .15){ schedule(mus.step, mus.bar, I, mus.next); mus.next += spb; if(++mus.step === 16){ mus.step = 0; mus.bar++; } }
 }
 
 /* ---------- grid helpers ---------- */
@@ -298,13 +369,16 @@ function loadLevel(i){
   alarm = {phase:'calm', t:0, x:0, y:0}; stats = {time:0, alarms:0};
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const c = grid[y][x];
-    if(c === 'P'){ player = {x:x + .5, y:y + .5, ang:Math.PI / 2, run:false, step:0, hp:100, hidden:false, exposed:false, seenT:9, walk:0}; grid[y][x] = '.'; }
+    if(c === 'P'){ player = {x:x + .5, y:y + .5, ang:Math.PI / 2, run:false, step:0, hp:100, hidden:false, exposed:false, seenT:9, walk:0, lit:false}; grid[y][x] = '.'; }
     else if('Xabpm'.includes(c)){ items.push({x:x + .5, y:y + .5, k:c}); grid[y][x] = '.'; }
   }
   guards = L.guards.map(pts => ({x:pts[0][0] + .5, y:pts[0][1] + .5, ang:0, state:'patrol', pts, pi:pts.length > 1 ? 1 : 0,
-    path:null, wait:0, meter:0, sleep:0, look:0, repath:0, wake:null, sees:false, fire:0, walk:0, say:null}));
+    path:null, wait:0, meter:0, sleep:0, look:0, repath:0, wake:null, sees:false, fire:0, walk:0, say:null, out:0, called:false}));
   guards.forEach(g => goTo(g, g.pts[g.pi][0], g.pts[g.pi][1]));
   cams = L.cams.map(c => ({x:c.x + .5, y:c.y + .5, base:c.base, sweep:c.sweep, period:c.period, ang:c.base, meter:0}));
+  lamps = (L.lamps || []).map(q => ({x:q[0] + .5, y:q[1] + .5, on:true}));
+  lasers = (L.lasers || []).map(l => ({x0:l.x0, x1:l.x1 + 1, y:l.y + .5, period:l.period, phase:l.phase || 0, on:false}));
+  lockdown = false; shake = 0;
   $('floor').textContent = L.name; setGoal(); buildWorld();
 }
 function setGoal(){ $('goal').textContent = hasDoc ? 'Logboek binnen. Naar de lift.' : LEVELS[lvl].goal; }
@@ -352,7 +426,7 @@ function noise(x, y, r){
 function canSee(g){
   const d = dist(g, player), hot = g.state === 'chase' || g.state === 'search';
   if(player.hidden) return player.exposed && hot && d < 8;
-  if(d > (hot ? 8 : RANGE)) return false;
+  if(d > (hot ? 8 : player.lit ? RANGE : 4.3)) return false;
   const off = Math.abs(angDiff(Math.atan2(player.y - g.y, player.x - g.x), g.ang));
   if(off < (hot ? 1 : FOV) || (d < 1.1 && (player.run || off < 1.6))) return los(g.x, g.y, player.x, player.y);
   return false;
@@ -378,7 +452,7 @@ function pickSearch(g){
   g.path = [];
 }
 function hurt(n){
-  player.hp -= n; flash = .35; beep(140, .12, 'sawtooth', .08, 70);
+  player.hp -= n; flash = .35; shake = .3; beep(140, .12, 'sawtooth', .08, 70);
   if(player.hp <= 0){ player.hp = 0; down(); }
 }
 function shoot(g, d){
@@ -387,21 +461,26 @@ function shoot(g, d){
   const a = Math.atan2(player.y - g.y, player.x - g.x) + (hit ? 0 : (Math.random() < .5 ? -1 : 1) * (.12 + Math.random() * .15));
   const len = hit ? d : rayDist(g.x, g.y, a, 9);
   tracers.push({x0:g.x + Math.cos(a) * .4, y0:g.y + Math.sin(a) * .4, x1:g.x + Math.cos(a) * len, y1:g.y + Math.sin(a) * len, t:.12});
-  beep(90, .09, 'square', .09, 40);
+  beep(90, .09, 'square', .09, 40); muzzleT = .07; if(muzzle) muzzle.position.set(g.x + Math.cos(a) * .5, .8, g.y + Math.sin(a) * .5);
   if(hit) hurt(12);
 }
 
 function updateGuard(g, dt){
   if(g.say){ g.say.t -= dt; if(g.say.t <= 0) g.say = null; }
   if(g.sleep > 0){
-    g.sleep -= dt; g.sees = false;
-    if(g.sleep <= 0){ g.state = alarm.phase === 'alarm' ? 'chase' : 'look'; g.look = 3; g.meter = .2; say(g, 'Wat... wie?'); }
+    g.sleep -= dt; g.sees = false; g.out += dt;
+    if(g.out > 14 && !g.called && alarm.phase === 'calm'){
+      g.called = true; let b = null;
+      for(const o of guards) if(o.sleep <= 0 && o.state === 'patrol' && (!b || dist(o, g) < dist(b, g))) b = o;
+      if(b){ b.state = 'investigate'; b.wake = g; goTo(b, Math.floor(g.x), Math.floor(g.y)); say(b, 'Post meldt zich niet.'); }
+    }
+    if(g.sleep <= 0){ g.out = 0; g.called = false; g.state = alarm.phase === 'alarm' ? 'chase' : 'look'; g.look = 3; g.meter = .2; say(g, 'Wat... wie?'); }
     return;
   }
   const sees = g.sees = canSee(g);
   if(sees){
     const d = dist(g, player); player.seenT = 0;
-    g.meter += (.7 + 1.8 * (1 - Math.min(1, d / RANGE))) * (alarm.phase === 'calm' ? 1 : 2.5) * dt;
+    g.meter += (.7 + 1.8 * (1 - Math.min(1, d / RANGE))) * (alarm.phase === 'calm' ? 1 : 2.5) * (player.lit ? 1.4 : .7) * dt;
     if(alarm.phase === 'alarm'){ if(!player.hidden){ alarm.x = player.x; alarm.y = player.y; } alarm.t = 6; }
   } else g.meter -= .45 * dt;
   g.meter = Math.max(0, Math.min(1, g.meter));
@@ -464,6 +543,11 @@ function fireDart(){
     const ga = Math.atan2(g.y - player.y, g.x - player.x), off = Math.abs(angDiff(ga, player.ang));
     if(off < best){ best = off; a = ga; }
   }
+  if(best === .45) for(const l of lamps){
+    if(!l.on || dist(l, player) > 7 || !los(player.x, player.y, l.x, l.y)) continue;
+    const la = Math.atan2(l.y - player.y, l.x - player.x), off = Math.abs(angDiff(la, player.ang));
+    if(off < best){ best = off; a = la; }
+  }
   shots.push({x:player.x, y:player.y, vx:Math.cos(a) * 14, vy:Math.sin(a) * 14, life:.7});
   darts--; dartCd = .5; beep(300, .08, 'sawtooth', .04, 120);
 }
@@ -517,6 +601,7 @@ function showBest(){
 $('go').addEventListener('click', () => {
   if(!ac){ try{ ac = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
   if(ac && ac.state === 'suspended') ac.resume();
+  initMusic();
   $('overlay').hidden = true;
   if(mode === 'pause'){ mode = 'play'; return; }
   if(mode === 'title'){ total = {time:0, alarms:0}; loadLevel(lvl); }
@@ -525,6 +610,7 @@ $('go').addEventListener('click', () => {
   else if(mode === 'end'){ total = {time:0, alarms:0}; darts = 2; radioSeen = {}; loadLevel(0); }
   startRadio();
 });
+$('snd').addEventListener('click', () => { muted = !muted; $('snd').classList.toggle('off', muted); });
 $('menu').addEventListener('click', () => {
   if(mode !== 'play') return;
   mode = 'pause';
@@ -551,12 +637,21 @@ function update(dt){
   player.hidden = HIDE.includes(tile(px, py));
   if(player.hidden && !was){ player.exposed = alarm.phase === 'alarm' && player.seenT < .7; beep(200, .08, 'sine', .04); if(player.exposed) toast('Ze zagen je erin gaan'); }
   if(!player.hidden) player.exposed = false;
+  player.lit = !player.hidden && lamps.some(l => l.on && dist(l, player) < 3.4 && los(l.x, l.y, player.x, player.y));
+  shake = Math.max(0, shake - dt); muzzleT = Math.max(0, muzzleT - dt);
+  for(const l of lasers){
+    l.on = ((clock + l.phase) % l.period) < l.period * .6;
+    if(l.on && !player.hidden && alarm.phase !== 'alarm' && player.x > l.x0 && player.x < l.x1 && Math.abs(player.y - l.y) < .28){ raiseAlarm(); toast('Laser geraakt'); }
+  }
 
   for(let i = items.length - 1; i >= 0; i--){
     const it = items[i]; if(dist(it, player) > .6) continue;
     if(it.k === 'm' && player.hp >= 100) continue;
     kill(it); items.splice(i, 1); beep(900, .1, 'triangle', .06);
-    if(it.k === 'X'){ hasDoc = true; setGoal(); toast('Logboek gepakt. Naar de lift.'); }
+    if(it.k === 'X'){
+      hasDoc = true; setGoal(); toast('Logboek gepakt. Naar de lift.');
+      if(lvl === LEVELS.length - 1){ const n = stats.alarms; lockdown = true; lockT = 0; raiseAlarm(); stats.alarms = n; toast('Kluisalarm! Ren naar de lift.'); }
+    }
     else if(it.k === 'p'){ darts += 2; toast('Twee slaappijlen'); }
     else if(it.k === 'm'){ player.hp = Math.min(100, player.hp + 50); toast('Verband aangelegd'); }
     else { keys[it.k] = true; toast(it.k === 'a' ? 'Roze pas' : 'Groene pas'); }
@@ -582,6 +677,7 @@ function update(dt){
     for(let k = 0; k < 4 && !gone; k++){
       s.x += s.vx * dt / 4; s.y += s.vy * dt / 4;
       if(solidAt(s.x, s.y)) gone = true;
+      for(const l of lamps) if(!gone && l.on && Math.hypot(l.x - s.x, l.y - s.y) < .45){ l.on = false; gone = true; beep(1800, .09, 'triangle', .06, 300); noise(l.x, l.y, 5); toast('Lamp uit'); }
       for(const g of guards) if(!gone && g.sleep <= 0 && Math.hypot(g.x - s.x, g.y - s.y) < .45){
         g.sleep = 25; g.meter = 0; g.path = null; g.say = null; gone = true; beep(180, .2, 'sine', .07, 90);
       }
@@ -602,6 +698,7 @@ function update(dt){
   for(const g of guards){ updateGuard(g, dt); if(mode !== 'play') return; }
   grabT = findGrab();
 
+  if(lockdown){ alarm.t = Math.max(alarm.t, 2); lockT -= dt; if(lockT <= 0 && !player.hidden){ lockT = 2.5; alarm.x = player.x; alarm.y = player.y; } }
   if(alarm.phase === 'alarm'){
     alarm.t -= dt;
     if(alarm.t <= 0){ alarm.phase = 'search'; alarm.t = 12;
@@ -616,7 +713,7 @@ function update(dt){
 
 /* ---------- render (three.js) ---------- */
 const ov = $('ov'), ctx = ov.getContext('2d');
-let R = null, scene, cam3, world = null, spot, hemi, pModel, exitM, exitBeam, floorTex, crateTex;
+let R = null, scene, cam3, world = null, spot, hemi, pModel, exitM, exitBeam, floorTex, crateTex, wallTex, hazTex, muzzle = null;
 let vw = 0, vh = 0, dpr = 1, doorM = {}, camT = null;
 const WALLH = 1.1, CN = 22;
 const V = window.THREE ? new THREE.Vector3() : null;
@@ -630,14 +727,24 @@ function init3d(){
   R.shadowMap.enabled = true; R.shadowMap.type = THREE.PCFSoftShadowMap;
   scene = new THREE.Scene(); scene.background = new THREE.Color(C.night); scene.fog = new THREE.Fog(C.night, 20, 40);
   cam3 = new THREE.PerspectiveCamera(38, 1, .5, 90);
-  hemi = new THREE.HemisphereLight(0x9fc4e8, 0x1a2330, .45); scene.add(hemi);
-  spot = new THREE.SpotLight(0xfff1d6, 1.3, 28, .62, .8, 1); spot.castShadow = true;
+  hemi = new THREE.HemisphereLight(0x9fc4e8, 0x1a2330, .36); scene.add(hemi);
+  muzzle = new THREE.PointLight(0xffe2a0, 0, 6, 1.5); scene.add(muzzle);
+  spot = new THREE.SpotLight(0xbcd4f0, .8, 28, .62, .85, 1); spot.castShadow = true;
   spot.shadow.mapSize.set(1024, 1024); spot.shadow.camera.near = 2; spot.shadow.camera.far = 28; spot.shadow.bias = -.002;
   scene.add(spot); scene.add(spot.target);
   floorTex = tex((g, s) => {
     g.fillStyle = '#6a7884'; g.fillRect(0, 0, s, s);
     for(let i = 0; i < 500; i++){ g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,.07)' : 'rgba(255,255,255,.05)'; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); }
     g.fillStyle = '#39444f'; g.fillRect(0, 0, s, 3); g.fillRect(0, 0, 3, s);
+  });
+  wallTex = tex((g, s) => {
+    g.fillStyle = '#62768b'; g.fillRect(0, 0, s, s); g.fillStyle = '#7e92a7'; g.fillRect(0, 0, s, 5);
+    g.fillStyle = '#4c5d6f'; g.fillRect(s / 2 - 1, 5, 3, s - 31); g.fillStyle = '#c9a13c'; g.fillRect(0, s - 30, s, 4);
+    g.fillStyle = '#34414e'; g.fillRect(0, s - 26, s, 26); g.fillStyle = '#8fa3b7'; for(const x of [10, s / 2 - 12, s / 2 + 12, s - 10]) g.fillRect(x - 2, 14, 4, 4);
+  });
+  hazTex = tex((g, s) => {
+    g.fillStyle = '#d9a52e'; g.fillRect(0, 0, s, s); g.fillStyle = '#14181d';
+    for(let i = -s; i < s * 2; i += 32){ g.beginPath(); g.moveTo(i, 0); g.lineTo(i + 16, 0); g.lineTo(i + 16 - s, s); g.lineTo(i - s, s); g.fill(); }
   });
   crateTex = tex((g, s) => {
     g.fillStyle = '#8c744a'; g.fillRect(0, 0, s, s); g.strokeStyle = '#5c4a2c'; g.lineWidth = 10; g.strokeRect(5, 5, s - 10, s - 10);
@@ -651,26 +758,45 @@ function box(w, h, d, m, x, y, z, shadow){
   const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z);
   if(shadow !== false){ b.castShadow = true; b.receiveShadow = true; } return b;
 }
-function makePerson(col, dark, skin, gun, cap){
+function mesh(geo, m, x, y, z){ const b = new THREE.Mesh(geo, m); b.position.set(x, y, z); b.castShadow = true; return b; }
+function makePerson(col, dark, skin, guard){
   const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
-  const mc = phong(col), md = phong(dark), ms = phong(skin);
-  const limb = (m, x, y, z, w, h) => { const p = new THREE.Group(); p.position.set(x, y, z); p.add(box(w, h, w, m, 0, -h / 2, 0)); body.add(p); return p; };
-  const legL = limb(md, 0, .46, -.1, .16, .46), legR = limb(md, 0, .46, .1, .16, .46);
-  body.add(box(.25, .46, .44, mc, 0, .69, 0));
-  const armL = limb(mc, 0, .9, -.28, .11, .42), armR = limb(mc, 0, .9, .28, .11, .42);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.15, 12, 10), ms); head.position.set(.02, 1.07, 0); head.castShadow = true; body.add(head);
-  if(cap){ body.add(box(.3, .08, .3, md, .02, 1.19, 0)); body.add(box(.16, .03, .24, md, .2, 1.16, 0)); }
-  else body.add(box(.3, .2, .32, mc, -.03, 1.12, 0));
-  if(gun){ armL.rotation.z = 1.25; armR.rotation.z = 1.05; body.add(box(.46, .07, .07, phong('#0a0d11'), .46, .76, .1)); }
-  g.scale.setScalar(1); g.userData = {body, legL, legR, armL, armR, gun};
+  const P = (c, e) => new THREE.MeshPhongMaterial({color:c, shininess:25, emissive:e ? c : 0x000000, emissiveIntensity:e || 0});
+  const mc = P(col), md = P(dark), ms = P(skin), blk = P('#0c1015');
+  const limb = (m, x, y, z, r, h, foot) => {
+    const p = new THREE.Group(); p.position.set(x, y, z);
+    p.add(mesh(new THREE.CylinderGeometry(r, r * .82, h, 8), m, 0, -h / 2, 0));
+    p.add(foot ? mesh(new THREE.BoxGeometry(.22, .09, .13), blk, .04, -h + .04, 0) : mesh(new THREE.SphereGeometry(r * .95, 8, 6), ms, 0, -h, 0));
+    body.add(p); return p;
+  };
+  const legL = limb(md, 0, .5, -.1, .085, .46, true), legR = limb(md, 0, .5, .1, .085, .46, true);
+  const torso = mesh(new THREE.CylinderGeometry(.2, .16, .46, 10), mc, 0, .73, 0); torso.scale.z = 1.25; body.add(torso);
+  body.add(mesh(new THREE.BoxGeometry(.36, .07, .46), blk, 0, .52, 0));
+  const armL = limb(mc, 0, .93, -.3, .06, .4, false), armR = limb(mc, 0, .93, .3, .06, .4, false);
+  body.add(mesh(new THREE.SphereGeometry(.15, 14, 10), ms, .02, 1.1, 0));
+  if(guard){
+    body.add(mesh(new THREE.BoxGeometry(.42, .3, .52), md, 0, .78, 0));
+    body.add(mesh(new THREE.SphereGeometry(.175, 14, 8, 0, TAU, 0, Math.PI / 2), md, .02, 1.11, 0));
+    body.add(mesh(new THREE.BoxGeometry(.05, .05, .2), P(C.sodium, .9), .16, 1.1, 0));
+    body.add(mesh(new THREE.BoxGeometry(.1, .22, .2), blk, -.24, .8, 0));
+    body.add(mesh(new THREE.CylinderGeometry(.008, .008, .3, 4), blk, -.26, 1.05, .07));
+    armL.rotation.z = 1.25; armR.rotation.z = 1.05;
+    body.add(mesh(new THREE.BoxGeometry(.5, .07, .06), blk, .48, .8, .1)); body.add(mesh(new THREE.BoxGeometry(.08, .16, .05), blk, .38, .72, .1));
+  } else {
+    const hood = mesh(new THREE.SphereGeometry(.172, 14, 8, 0, TAU, 0, Math.PI * .62), md, 0, 1.11, 0); hood.rotation.z = .6; body.add(hood);
+    body.add(mesh(new THREE.BoxGeometry(.04, .045, .18), P(C.ice, 1), .155, 1.1, 0));
+    body.add(mesh(new THREE.BoxGeometry(.12, .26, .26), md, -.22, .78, 0));
+  }
+  g.userData = {body, legL, legR, armL, armR, gun:guard, last:0};
   return g;
 }
-function pose(m, x, y, a, walk, lying){
-  const u = m.userData, s = Math.sin(walk) * .6;
+function pose(m, x, y, a, walk, lying, run){
+  const u = m.userData, moving = walk !== u.last, s = Math.sin(walk) * (run ? .8 : .55); u.last = walk;
   m.position.set(x, 0, y); m.rotation.y = -a;
-  u.body.rotation.x = lying ? Math.PI / 2 : 0; u.body.position.y = lying ? .16 : 0;
-  u.legL.rotation.z = lying ? 0 : s; u.legR.rotation.z = lying ? 0 : -s;
-  if(!u.gun){ u.armL.rotation.z = -s * .8; u.armR.rotation.z = s * .8; }
+  u.body.rotation.x = lying ? Math.PI / 2 : 0; u.body.rotation.z = lying ? 0 : -(run ? .25 : moving ? .1 : 0);
+  u.body.position.y = lying ? .18 : Math.sin(clock * 2.2 + x) * .008;
+  u.legL.rotation.z = lying || !moving ? 0 : s; u.legR.rotation.z = lying || !moving ? 0 : -s;
+  if(!u.gun){ u.armL.rotation.z = moving ? -s * .8 : 0; u.armR.rotation.z = moving ? s * .8 : 0; }
 }
 function makeCone(){
   const geo = new THREE.BufferGeometry(), idx = [];
@@ -701,7 +827,7 @@ function buildWorld(){
   floorTex.repeat.set(W, H);
   const fl = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshPhongMaterial({map:floorTex, shininess:4}));
   fl.rotation.x = -Math.PI / 2; fl.position.set(W / 2, 0, H / 2); fl.receiveShadow = true; world.add(fl);
-  const side = phong('#5d7186'), top = phong('#8497ab'), walls = [];
+  const side = new THREE.MeshPhongMaterial({map:wallTex, shininess:10}), top = phong('#6f8399'), walls = [], haz = new THREE.MeshPhongMaterial({map:hazTex, shininess:4});
   for(let y = 0; y < H; y++) for(let x = 0; x < W; x++){
     const c = grid[y][x], cx = x + .5, cz = y + .5;
     if(c === '#' || c === 'v') walls.push([cx, cz]);
@@ -720,6 +846,7 @@ function buildWorld(){
       const col = c === 'A' ? C.passA : C.passB, ns = tile(x - 1, y) === '#' || tile(x + 1, y) === '#';
       const d = box(ns ? 1 : .22, WALLH, ns ? .22 : 1, new THREE.MeshPhongMaterial({color:col, emissive:col, emissiveIntensity:.45}), cx, WALLH / 2, cz);
       world.add(d); doorM[x + ',' + y] = d;
+      for(const k of [-1, 1]){ const h = new THREE.Mesh(new THREE.PlaneGeometry(1, .3), haz); h.rotation.x = -Math.PI / 2; if(!ns) h.rotation.z = Math.PI / 2; h.position.set(cx + (ns ? 0 : k * .68), .02, cz + (ns ? k * .68 : 0)); h.receiveShadow = true; world.add(h); }
     } else if(c === 'E'){
       exitM = new THREE.Mesh(new THREE.PlaneGeometry(.9, .9), basic(C.dim, .3)); exitM.rotation.x = -Math.PI / 2; exitM.position.set(cx, .03, cz); world.add(exitM);
       exitBeam = box(.8, 2.4, .8, basic(C.ice, .1), cx, 1.2, cz, false); exitBeam.visible = false; world.add(exitBeam);
@@ -728,14 +855,28 @@ function buildWorld(){
   const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, WALLH, 1), [side, side, top, side, side, side], walls.length), M = new THREE.Matrix4();
   walls.forEach((w, i) => { M.makeTranslation(w[0], WALLH / 2, w[1]); im.setMatrixAt(i, M); });
   im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; world.add(im);
+  const blk = phong('#0c1015');
+  for(const l of lamps){
+    const g = new THREE.Group(); g.position.set(l.x, 0, l.y);
+    g.add(box(.02, 1.4, .02, blk, 0, 2.9, 0, false));
+    g.add(new THREE.Mesh(new THREE.CylinderGeometry(.07, .3, .2, 12, 1, true), new THREE.MeshPhongMaterial({color:'#1a222b', side:THREE.DoubleSide})).translateY(2.12));
+    l.bulb = new THREE.Mesh(new THREE.SphereGeometry(.08, 8, 6), basic('#ffd9a0')); l.bulb.position.y = 2.05; g.add(l.bulb);
+    l.light = new THREE.PointLight(0xffc37a, 1.2, 7.5, 1.4); l.light.position.y = 1.9; g.add(l.light);
+    l.m = g; world.add(g);
+  }
+  for(const l of lasers){
+    const len = l.x1 - l.x0, mx = (l.x0 + l.x1) / 2;
+    l.beams = new THREE.Group(); for(const h of [.35, .75]) l.beams.add(box(len, .03, .03, new THREE.MeshBasicMaterial({color:C.alarm}), mx, h, l.y, false));
+    world.add(l.beams); world.add(box(.08, .95, .1, blk, l.x0 + .04, .475, l.y)); world.add(box(.08, .95, .1, blk, l.x1 - .04, .475, l.y));
+  }
   for(const it of items){ it.m = itemMesh(it.k); it.m.position.set(it.x, .4, it.y); world.add(it.m); }
-  for(const g of guards){ g.m = makePerson(C.guard, C.guardDark, '#d9b08c', true, true); world.add(g.m); g.cone = makeCone(); world.add(g.cone); }
+  for(const g of guards){ g.m = makePerson(C.guard, C.guardDark, '#d9b08c', true); world.add(g.m); g.cone = makeCone(); world.add(g.cone); }
   for(const c of cams){
     c.m = new THREE.Group(); c.m.add(box(.3, .2, .2, phong('#dfe7ee'), .08, 0, 0)); c.m.add(box(.06, .1, .1, basic(C.ice), .25, 0, 0, false));
     c.m.position.set(c.x, WALLH + .2, c.y); world.add(c.m); world.add(box(.08, WALLH + .1, .08, phong('#2a3642'), c.x, (WALLH + .1) / 2, c.y));
     c.cone = makeCone(); world.add(c.cone);
   }
-  pModel = makePerson(C.suit, C.suitDark, C.hood, false, false);
+  pModel = makePerson(C.suit, C.suitDark, '#e3c2a2', false);
   const ghost = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, 1.1, 12), new THREE.MeshBasicMaterial({color:C.ice, transparent:true, opacity:.2, depthTest:false, depthWrite:false}));
   ghost.position.y = .6; ghost.renderOrder = 9; pModel.add(ghost); world.add(pModel);
 }
@@ -752,15 +893,19 @@ function render(){
   camT.x += (player.x - camT.x) * .14; camT.z += (player.y - camT.z) * .14;
   const d = Math.max(7.6 / cam3.aspect, 10) / (2 * Math.tan(cam3.fov * Math.PI / 360));
   cam3.position.set(camT.x, d * .857, camT.z - .4 + d * .515); cam3.lookAt(camT.x, 0, camT.z - .4);
+  if(shake > 0){ cam3.position.x += (Math.random() - .5) * shake; cam3.position.z += (Math.random() - .5) * shake; }
+  muzzle.intensity = muzzleT > 0 ? 2.6 : 0;
+  for(const l of lamps){ l.light.intensity = l.on ? 1.2 + .04 * Math.sin(clock * 31 + l.x) : 0; l.bulb.material.color.set(l.on ? '#ffd9a0' : '#2a2f36'); }
+  for(const l of lasers) l.beams.visible = l.on;
   scene.fog.near = d + 3; scene.fog.far = d + 18;
   spot.position.set(player.x, 9, player.y + 2); spot.target.position.set(player.x, 0, player.y);
   const al = alarm.phase === 'alarm';
-  hemi.color.set(al ? '#d9958c' : '#9fc4e8'); hemi.intensity = al ? .42 + .1 * Math.sin(clock * 8) : .45;
+  hemi.color.set(al ? '#d9958c' : '#9fc4e8'); hemi.intensity = al ? .4 + .1 * Math.sin(clock * 8) : .36;
 
-  pModel.visible = !player.hidden; pose(pModel, player.x, player.y, player.ang, player.walk, false);
+  pModel.visible = !player.hidden; pose(pModel, player.x, player.y, player.ang, player.walk, false, player.run); pModel.userData.body.scale.y = player.run ? 1 : .9;
   for(const g of guards){
     const hot = g.state === 'chase' || g.state === 'search', z = g.sleep > 0;
-    pose(g.m, g.x, g.y, g.ang, g.walk, z); g.cone.visible = !z;
+    pose(g.m, g.x, g.y, g.ang, g.walk, z, g.state === 'chase'); g.cone.visible = !z;
     if(!z) updCone(g.cone, g.x, g.y, g.ang, hot ? 1 : FOV, hot ? 8 : RANGE, hot || g.meter > .4 ? C.alarm : C.sodium, hot ? .18 : .24 + .25 * g.meter);
   }
   for(const c of cams){ c.m.rotation.y = -c.ang; updCone(c.cone, c.x, c.y, c.ang, CAM_FOV, CAM_RANGE, c.meter > .05 ? C.alarm : C.ice, .2 + .3 * c.meter); }
@@ -817,6 +962,8 @@ function radar(){
     ctx.fillStyle = c === '#' ? '#3a4a5a' : c === 'o' ? '#4a4334' : c === 'A' ? C.passA : c === 'B' ? C.passB : c === 'E' ? (hasDoc ? C.ice : C.dim) : C.locker;
     ctx.fillRect(ox + x * s, oy + y * s, s + .5, s + .5);
   }
+  for(const l of lasers) if(l.on){ ctx.strokeStyle = C.alarm; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(ox + l.x0 * s, oy + l.y * s); ctx.lineTo(ox + l.x1 * s, oy + l.y * s); ctx.stroke(); }
+  for(const l of lamps) if(l.on){ ctx.fillStyle = C.sodium; ctx.globalAlpha = .13; ctx.beginPath(); ctx.arc(ox + l.x * s, oy + l.y * s, 3.2 * s, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; }
   for(const it of items) if(it.k === 'X'){ ctx.fillStyle = C.ice; ctx.globalAlpha = .6 + .4 * Math.sin(clock * 5); ctx.fillRect(ox + it.x * s - 2, oy + it.y * s - 2, 4, 4); ctx.globalAlpha = 1; }
   const wedge = (e, fov, len, col) => { ctx.fillStyle = col; ctx.globalAlpha = .35; ctx.beginPath(); ctx.moveTo(ox + e.x * s, oy + e.y * s); ctx.arc(ox + e.x * s, oy + e.y * s, len * s, e.ang - fov, e.ang + fov); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; };
   for(const c of cams) wedge(c, CAM_FOV, 3, C.ice);
@@ -835,13 +982,15 @@ function hud(){
   else if(alarm.phase === 'search'){ s = 'search'; label = 'ZOEKEN ' + Math.ceil(alarm.t); }
   else if(guards.some(g => g.sleep <= 0 && (g.meter > .25 || g.state === 'investigate' || g.state === 'look')) || cams.some(c => c.meter > .1)){ s = 'sus'; label = 'ARGWAAN'; }
   else if(player.hidden){ s = 'hid'; label = 'VERSCHOLEN'; }
+  susNow = s === 'sus';
   const hp = Math.round(player.hp);
-  const key = label + darts + keys.a + keys.b + hasDoc + (coinCd > 0) + hp + !!grabT;
+  const key = label + player.lit + darts + keys.a + keys.b + hasDoc + (coinCd > 0) + hp + !!grabT;
   if(key === hudKey) return; hudKey = key;
   const st = $('status'); st.textContent = label; st.dataset.s = s;
   $('dartN').textContent = darts; $('bDart').classList.toggle('off', darts <= 0);
   $('bCoin').classList.toggle('off', coinCd > 0);
   $('bGrab').hidden = !grabT;
+  $('light').textContent = player.hidden ? 'SCHUIL' : player.lit ? 'LICHT' : 'DONKER'; $('light').classList.toggle('on', player.lit);
   $('hpFill').style.width = hp + '%'; $('hp').classList.toggle('low', hp <= 35);
   $('pa').classList.toggle('on', keys.a); $('pb').classList.toggle('on', keys.b); $('doc').classList.toggle('on', hasDoc);
 }
